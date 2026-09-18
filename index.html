@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>THE WEB DEVELOPER</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <div class="bg"></div>
+
+  <header>
+    <div class="owner">Owner Name = <span>DEVENDRA GARG</span></div>
+    <div class="logo">THE WEB DEVELOPER</div>
+    <p>Professional Web Development Workspace</p>
+  </header>
+
+  <main>
+
+    <section class="hero">
+      <h1>BUILD • CREATE • DELIVER</h1>
+      <p>Manage your websites, customers, sales and projects in one place.</p>
+    </section>
+
+    <section class="stats">
+      <div class="stat">
+        <b id="websiteCount">0</b>
+        <span>Total Websites</span>
+      </div>
+
+      <div class="stat">
+        <b id="saleCount">0</b>
+        <span>Total Sell</span>
+      </div>
+
+      <div class="stat">
+        <b id="customerCount">0</b>
+        <span>Customers</span>
+      </div>
+
+      <div class="stat">
+        <b id="favoriteCount">0</b>
+        <span>Favorites</span>
+      </div>
+    </section>
+
+    <section class="dashboard">
+
+      <button class="dash-card" onclick="showWebsites()">
+        <div>🌐</div>
+        <h2>My Total Websites</h2>
+        <p>View and search all websites</p>
+      </button>
+
+      <button class="dash-card" onclick="showSales()">
+        <div>💰</div>
+        <h2>Total Sell</h2>
+        <p>View sold websites and buyers</p>
+      </button>
+
+      <button class="dash-card" onclick="showCustomers()">
+        <div>👥</div>
+        <h2>Customers</h2>
+        <p>Search customer information</p>
+      </button>
+
+      <button class="dash-card" onclick="showFavorites()">
+        <div>⭐</div>
+        <h2>Favorite Projects</h2>
+        <p>View your favorite projects</p>
+      </button>
+
+      <button class="dash-card add-card" onclick="showAddForm()">
+        <div>➕</div>
+        <h2>Add New</h2>
+        <p>Add complete project information</p>
+      </button>
+
+    </section>
+
+    <section class="about">
+      <h2>ABOUT THE DEVELOPER</h2>
+      <p>
+        Welcome to my professional web development workspace.
+        Here I manage websites, projects, customers and sales.
+      </p>
+    </section>
+
+  </main>
+
+  <!-- MODAL -->
+  <div id="modal" class="modal">
+    <div class="modal-box">
+
+      <button class="close" onclick="closeModal()">×</button>
+
+      <div id="modalContent"></div>
+
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
