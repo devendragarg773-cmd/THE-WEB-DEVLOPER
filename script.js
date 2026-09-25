@@ -1,63 +1,253 @@
 /* =========================================================
    THE WEB DEVELOPER
-   COMPLETE FRONTEND MANAGEMENT SYSTEM
+   BACKEND CONNECTED FRONTEND
 ========================================================= */
-const API_URL = "https://the-web-devloper-backent.onrender.com/api";
+
+const API_URL =
+  "https://the-web-devloper-backent.onrender.com/api";
+
+let backendToken =
+  sessionStorage.getItem("twd_backend_token") || "";
+
+
+/* ================= API HELPER ================= */
+
+async function apiRequest(endpoint, options = {}) {
+
+  const config = {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {})
+    }
+  };
+
+  if (backendToken) {
+    config.headers.Authorization =
+      `Bearer ${backendToken}`;
+  }
+
+  const response =
+    await fetch(`${API_URL}${endpoint}`, config);
+
+  if (response.status === 401) {
+
+    backendToken = "";
+
+    sessionStorage.removeItem(
+      "twd_backend_token"
+    );
+
+    sessionStorage.removeItem(
+      "twd_logged_in"
+    );
+
+    throw new Error(
+      "Session expired. Please login again."
+    );
+  }
+
+  const text =
+    await response.text();
+
+  let data = {};
+
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = {
+      message: text
+    };
+  }
+
+  if (!response.ok) {
+
+    throw new Error(
+      data.message ||
+      data.error ||
+      `API Error ${response.status}`
+    );
+  }
+
+  return data;
+}
+
+
+/* ================= BACKEND TEST ================= */
 
 fetch(`${API_URL}/health`)
   .then(res => res.json())
-  .then(data => console.log("Backend Connected:", data))
-  .catch(err => console.error("Backend Error:", err));
+  .then(data => {
+    console.log(
+      "✅ Backend Connected:",
+      data
+    );
+  })
+  .catch(error => {
+    console.error(
+      "❌ Backend Error:",
+      error
+    );
+  });
+
 
 /* ================= LOGIN ================= */
 
-const LOGIN_NAME = "DEVENDRA GARG";
-const LOGIN_PASSWORD = "@ND0710";
+const LOGIN_NAME =
+  "DEVENDRA GARG";
 
-function login(event) {
-  if (event) event.preventDefault();
+const LOGIN_PASSWORD =
+  "@ND0710";
 
-  const name = document.getElementById("loginName").value.trim().toUpperCase();
-  const password = document.getElementById("loginPassword").value;
-  const error = document.getElementById("loginError");
 
-  if (name === LOGIN_NAME && password === LOGIN_PASSWORD) {
-    sessionStorage.setItem("twd_logged_in", "true");
+async function login(event) {
 
-    document.getElementById("loginPage").classList.add("hidden");
-    document.getElementById("mainWebsite").classList.remove("hidden");
+  if (event) {
+    event.preventDefault();
+  }
 
-    updateStats();
+  const name =
+    document
+      .getElementById("loginName")
+      .value
+      .trim()
+      .toUpperCase();
+
+  const password =
+    document
+      .getElementById("loginPassword")
+      .value;
+
+  const error =
+    document.getElementById(
+      "loginError"
+    );
+
+
+  if (!name || !password) {
+
+    error.textContent =
+      "❌ Name and password required.";
+
     return;
   }
 
-  error.textContent = "❌ Name or password is incorrect.";
+
+  error.textContent =
+    "⏳ Logging in...";
+
+
+  try {
+
+    const data =
+      await apiRequest(
+        "/auth/login",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            name,
+            password
+          })
+        }
+      );
+
+
+    if (
+      data.token ||
+      data.accessToken
+    ) {
+
+      backendToken =
+        data.token ||
+        data.accessToken;
+
+      sessionStorage.setItem(
+        "twd_backend_token",
+        backendToken
+      );
+
+      sessionStorage.setItem(
+        "twd_logged_in",
+        "true"
+      );
+
+
+      document
+        .getElementById("loginPage")
+        .classList.add("hidden");
+
+      document
+        .getElementById("mainWebsite")
+        .classList.remove("hidden");
+
+
+      await loadRemoteData();
+
+      updateStats();
+
+      error.textContent = "";
+
+      return;
+    }
+
+
+    error.textContent =
+      "❌ Login failed.";
+
+  } catch (err) {
+
+    console.error(err);
+
+    error.textContent =
+      "❌ Name or password is incorrect.";
+  }
 }
 
-/* ENTER KEY LOGIN */
-document.addEventListener("keydown", function (event) {
-  if (event.key === "Enter") {
-    const loginPage = document.getElementById("loginPage");
+
+/* ================= ENTER KEY LOGIN ================= */
+
+document.addEventListener(
+  "keydown",
+  function(event) {
+
+    if (event.key !== "Enter") {
+      return;
+    }
+
+    const loginPage =
+      document.getElementById(
+        "loginPage"
+      );
 
     if (
       loginPage &&
-      !loginPage.classList.contains("hidden")
+      !loginPage.classList.contains(
+        "hidden"
+      )
     ) {
+
       login(event);
     }
+
   }
-});
+);
 
 
 /* ================= DATA ================= */
 
-let projects = JSON.parse(
-  localStorage.getItem("twd_projects") || "[]"
-);
+let projects =
+  JSON.parse(
+    localStorage.getItem(
+      "twd_projects"
+    ) || "[]"
+  );
 
-let policy = localStorage.getItem(
-  "twd_private_policy"
-) || `PRIVATE CUSTOMER POLICY
+
+let policy =
+  localStorage.getItem(
+    "twd_private_policy"
+  ) ||
+`PRIVATE CUSTOMER POLICY
 
 1. The customer information provided in this form is private.
 
@@ -70,24 +260,131 @@ let policy = localStorage.getItem(
 5. This document is maintained as project paperwork.`;
 
 
+/* ================= REMOTE DATA ================= */
+
+async function loadRemoteData() {
+
+  try {
+
+    const projectsData =
+      await apiRequest(
+        "/projects"
+      );
+
+
+    if (
+      Array.isArray(
+        projectsData
+      )
+    ) {
+
+      projects =
+        projectsData;
+    } else {
+
+      projects =
+        projectsData.projects ||
+        projectsData.data ||
+        [];
+    }
+
+
+    const settingsData =
+      await apiRequest(
+        "/settings"
+      );
+
+
+    const settings =
+      settingsData.settings ||
+      settingsData ||
+      {};
+
+
+    if (
+      typeof settings.policy ===
+      "string"
+    ) {
+
+      policy =
+        settings.policy;
+    }
+
+
+    if (
+      settings.banner
+    ) {
+
+      localStorage.setItem(
+        "twd_banner",
+        settings.banner
+      );
+    }
+
+
+    localStorage.setItem(
+      "twd_projects",
+      JSON.stringify(projects)
+    );
+
+    localStorage.setItem(
+      "twd_private_policy",
+      policy
+    );
+
+
+    applyBanner();
+
+    updateStats();
+
+
+    console.log(
+      "✅ Remote data loaded successfully."
+    );
+
+  } catch (error) {
+
+    console.error(
+      "❌ Remote data load failed:",
+      error
+    );
+
+    /*
+      Backend fail hone par
+      local cache use hogi.
+    */
+
+    updateStats();
+  }
+}
+
+
 /* ================= ELEMENTS ================= */
 
 const modal =
-  document.getElementById("modal");
+  document.getElementById(
+    "modal"
+  );
 
 const modalContent =
-  document.getElementById("modalContent");
+  document.getElementById(
+    "modalContent"
+  );
 
 const fullPage =
-  document.getElementById("fullPage");
+  document.getElementById(
+    "fullPage"
+  );
 
 const fullPageContent =
-  document.getElementById("fullPageContent");
+  document.getElementById(
+    "fullPageContent"
+  );
 
 
-/* ================= SAVE ================= */
+/* ================= SAVE CACHE ================= */
 
-function saveData() {
+function saveLocalCache() {
 
   localStorage.setItem(
     "twd_projects",
@@ -110,34 +407,68 @@ function updateStats() {
   const realAndDemo =
     projects.length;
 
+
   const sales =
     projects.filter(
-      p => p.type === "real" && p.status === "Sold"
+      p =>
+        p.type === "real" &&
+        p.status === "Sold"
     );
+
 
   const customers =
     uniqueCustomers();
+
 
   const favorites =
     projects.filter(
       p => p.favorite
     );
 
-  document.getElementById(
-    "websiteCount"
-  ).textContent = realAndDemo;
 
-  document.getElementById(
-    "saleCount"
-  ).textContent = sales.length;
+  const websiteCount =
+    document.getElementById(
+      "websiteCount"
+    );
 
-  document.getElementById(
-    "customerCount"
-  ).textContent = customers.length;
+  const saleCount =
+    document.getElementById(
+      "saleCount"
+    );
 
-  document.getElementById(
-    "favoriteCount"
-  ).textContent = favorites.length;
+  const customerCount =
+    document.getElementById(
+      "customerCount"
+    );
+
+  const favoriteCount =
+    document.getElementById(
+      "favoriteCount"
+    );
+
+
+  if (websiteCount) {
+    websiteCount.textContent =
+      realAndDemo;
+  }
+
+
+  if (saleCount) {
+    saleCount.textContent =
+      sales.length;
+  }
+
+
+  if (customerCount) {
+    customerCount.textContent =
+      customers.length;
+  }
+
+
+  if (favoriteCount) {
+    favoriteCount.textContent =
+      favorites.length;
+  }
 }
 
 
@@ -145,28 +476,41 @@ function updateStats() {
 
 function uniqueCustomers() {
 
-  const map = new Map();
+  const map =
+    new Map();
 
-  projects.forEach(project => {
 
-    if (
-      project.type === "real" &&
-      project.customerName &&
-      project.customerMobile
-    ) {
+  projects.forEach(
+    project => {
 
-      map.set(
-        project.customerMobile,
-        {
-          name: project.customerName,
-          mobile: project.customerMobile,
-          projectId: project.id
-        }
-      );
+      if (
+        project.type === "real" &&
+        project.customerName &&
+        project.customerMobile
+      ) {
+
+        map.set(
+          project.customerMobile,
+          {
+            name:
+              project.customerName,
+
+            mobile:
+              project.customerMobile,
+
+            projectId:
+              project.id
+          }
+        );
+      }
+
     }
-  });
+  );
 
-  return [...map.values()];
+
+  return [
+    ...map.values()
+  ];
 }
 
 
@@ -174,7 +518,10 @@ function uniqueCustomers() {
 
 function openModal() {
 
-  modal.style.display = "block";
+  if (!modal) return;
+
+  modal.style.display =
+    "block";
 
   document.body.style.overflow =
     "hidden";
@@ -183,7 +530,10 @@ function openModal() {
 
 function closeModal() {
 
-  modal.style.display = "none";
+  if (!modal) return;
+
+  modal.style.display =
+    "none";
 
   document.body.style.overflow =
     "auto";
@@ -194,7 +544,11 @@ window.addEventListener(
   "click",
   function(event) {
 
-    if (event.target === modal) {
+    if (
+      modal &&
+      event.target === modal
+    ) {
+
       closeModal();
     }
 
@@ -206,7 +560,11 @@ window.addEventListener(
 
 function openFullPage() {
 
-  fullPage.classList.remove("hidden");
+  if (!fullPage) return;
+
+  fullPage.classList.remove(
+    "hidden"
+  );
 
   document.body.style.overflow =
     "hidden";
@@ -215,7 +573,11 @@ function openFullPage() {
 
 function closeFullPage() {
 
-  fullPage.classList.add("hidden");
+  if (!fullPage) return;
+
+  fullPage.classList.add(
+    "hidden"
+  );
 
   document.body.style.overflow =
     "auto";
@@ -227,6 +589,7 @@ function closeFullPage() {
 function showWebsites() {
 
   openFullPage();
+
 
   fullPageContent.innerHTML = `
 
@@ -240,16 +603,27 @@ function showWebsites() {
         class="type-card"
         onclick="showWebsiteList('demo')"
       >
-        <strong>🧪 DEMO WEBSITES</strong>
-        <span>View all demo projects</span>
+        <strong>
+          🧪 DEMO WEBSITES
+        </strong>
+
+        <span>
+          View all demo projects
+        </span>
       </button>
+
 
       <button
         class="type-card"
         onclick="showWebsiteList('real')"
       >
-        <strong>🌐 REAL WEBSITES</strong>
-        <span>View all real customer websites</span>
+        <strong>
+          🌐 REAL WEBSITES
+        </strong>
+
+        <span>
+          View all real customer websites
+        </span>
       </button>
 
     </div>
@@ -263,6 +637,7 @@ function showWebsiteList(type) {
     type === "real"
       ? "🌐 REAL WEBSITES"
       : "🧪 DEMO WEBSITES";
+
 
   fullPageContent.innerHTML = `
 
@@ -287,6 +662,7 @@ function showWebsiteList(type) {
     <div id="websiteList"></div>
   `;
 
+
   renderWebsiteList(type);
 }
 
@@ -298,10 +674,13 @@ function renderWebsiteList(type) {
       "websiteSearch"
     );
 
+
   const search =
     searchInput
-      ? searchInput.value.toLowerCase()
+      ? searchInput.value
+          .toLowerCase()
       : "";
+
 
   const list =
     projects.filter(
@@ -314,101 +693,129 @@ function renderWebsiteList(type) {
         .includes(search)
     );
 
+
   const container =
     document.getElementById(
       "websiteList"
     );
 
+
+  if (!container) return;
+
+
   if (!list.length) {
 
     container.innerHTML = `
+
       <div class="empty">
         No ${type} website found.
       </div>
+
     `;
 
     return;
   }
 
+
   container.innerHTML =
-    list.map(project => {
+    list.map(
+      project => {
 
-      const index =
-        projects.findIndex(
-          p => p.id === project.id
-        );
+        return `
 
-      return `
+          <div class="item">
 
-        <div class="item">
+            <h3>
+              ${escapeHTML(
+                project.websiteName
+              )}
+            </h3>
 
-          <h3>
-            ${escapeHTML(project.websiteName)}
-          </h3>
 
-          <span class="badge">
-            ${escapeHTML(
-              project.category || "Website"
-            )}
-          </span>
+            <span class="badge">
+              ${escapeHTML(
+                project.category ||
+                "Website"
+              )}
+            </span>
 
-          <p>
-            <b>Price:</b>
-            ₹${escapeHTML(project.price || "0")}
-          </p>
 
-          ${
-            project.websiteURL
-              ? `
-                <p>
-                  <a
-                    href="${escapeHTML(project.websiteURL)}"
-                    target="_blank"
-                    style="color:#00e5ff"
-                  >
-                    🔗 Open Live Website
-                  </a>
-                </p>
-              `
-              : ""
-          }
+            <p>
+              <b>Price:</b>
+              ₹${escapeHTML(
+                project.price || "0"
+              )}
+            </p>
 
-          ${
-            project.customerName
-              ? `
-                <p>
-                  <b>Customer:</b>
-                  ${escapeHTML(project.customerName)}
-                </p>
-              `
-              : ""
-          }
 
-          <p>
-            ${escapeHTML(
-              project.description || ""
-            )}
-          </p>
+            ${
+              project.websiteURL
+                ? `
 
-          <div class="item-actions">
+                  <p>
 
-            <button
-              class="action-btn favorite-btn"
-              onclick="toggleFavorite('${project.id}')"
-            >
-              ${
-                project.favorite
-                  ? "⭐ Favorite"
-                  : "☆ Add Favorite"
-              }
-            </button>
+                    <a
+                      href="${escapeHTML(
+                        project.websiteURL
+                      )}"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style="color:#00e5ff"
+                    >
+                      🔗 Open Live Website
+                    </a>
+
+                  </p>
+
+                `
+                : ""
+            }
+
+
+            ${
+              project.customerName
+                ? `
+
+                  <p>
+                    <b>Customer:</b>
+                    ${escapeHTML(
+                      project.customerName
+                    )}
+                  </p>
+
+                `
+                : ""
+            }
+
+
+            <p>
+              ${escapeHTML(
+                project.description || ""
+              )}
+            </p>
+
+
+            <div class="item-actions">
+
+              <button
+                class="action-btn favorite-btn"
+                onclick="toggleFavorite('${project.id}')"
+              >
+                ${
+                  project.favorite
+                    ? "⭐ Favorite"
+                    : "☆ Add Favorite"
+                }
+              </button>
+
+            </div>
 
           </div>
 
-        </div>
-      `;
-
-    }).join("");
+        `;
+      }
+    )
+    .join("");
 }
 
 
@@ -418,11 +825,13 @@ function showSales() {
 
   openFullPage();
 
+
   fullPageContent.innerHTML = `
 
     <h1 class="modal-title">
       💰 TOTAL SELL
     </h1>
+
 
     <input
       class="search"
@@ -431,8 +840,11 @@ function showSales() {
       oninput="renderSales()"
     >
 
+
     <div id="saleList"></div>
+
   `;
+
 
   renderSales();
 }
@@ -445,10 +857,13 @@ function renderSales() {
       "saleSearch"
     );
 
+
   const search =
     input
-      ? input.value.toLowerCase()
+      ? input.value
+          .toLowerCase()
       : "";
+
 
   const sales =
     projects.filter(
@@ -456,62 +871,139 @@ function renderSales() {
         p.type === "real" &&
         p.status === "Sold" &&
         (
-          (p.customerName || "")
-            .toLowerCase()
-            .includes(search) ||
+          (
+            p.customerName ||
+            ""
+          )
+          .toLowerCase()
+          .includes(search)
 
-          (p.websiteName || "")
-            .toLowerCase()
-            .includes(search)
+          ||
+
+          (
+            p.websiteName ||
+            ""
+          )
+          .toLowerCase()
+          .includes(search)
         )
     );
+
 
   const container =
     document.getElementById(
       "saleList"
     );
 
+
+  if (!container) return;
+
+
   if (!sales.length) {
 
     container.innerHTML = `
+
       <div class="empty">
         No sold website found.
       </div>
+
     `;
 
     return;
   }
 
+
   container.innerHTML =
-    sales.map((p, i) => `
+    sales.map(
+      (p, i) => `
 
-      <div class="item">
+        <div class="item">
 
-        <p>
-          <b>Sr No.:</b>
-          ${i + 1}
-        </p>
+          <p>
+            <b>Sr No.:</b>
+            ${i + 1}
+          </p>
 
-        <h3>
-          ${escapeHTML(p.customerName)}
-        </h3>
 
-        <p>
-          <b>Website:</b>
-          ${escapeHTML(p.websiteName)}
-        </p>
+          <h3>
+            ${escapeHTML(
+              p.customerName
+            )}
+          </h3>
 
-        <p>
-          <b>Sold Price:</b>
-          ₹${escapeHTML(p.soldPrice || p.price)}
-        </p>
 
-      </div>
+          <p>
+            <b>Website:</b>
+            ${escapeHTML(
+              p.websiteName
+            )}
+          </p>
 
-    `).join("");
+
+          <p>
+            <b>Sold Price:</b>
+            ₹${escapeHTML(
+              p.soldPrice ||
+              p.price
+            )}
+          </p>
+
+        </div>
+
+      `
+    )
+    .join("");
 }
 
 
+/* ================= STARTUP ================= */
+
+async function startApp() {
+
+  /*
+    Agar backend token already hai,
+    to direct dashboard open hoga.
+  */
+
+  if (backendToken) {
+
+    const loginPage =
+      document.getElementById(
+        "loginPage"
+      );
+
+    const mainWebsite =
+      document.getElementById(
+        "mainWebsite"
+      );
+
+
+    if (loginPage) {
+      loginPage.classList.add(
+        "hidden"
+      );
+    }
+
+
+    if (mainWebsite) {
+      mainWebsite.classList.remove(
+        "hidden"
+      );
+    }
+
+
+    await loadRemoteData();
+
+  } else {
+
+    updateStats();
+    applyBanner();
+  }
+}
+
+
+startApp();
+//part 2 //
 /* ================= CUSTOMERS ================= */
 
 function showCustomers() {
@@ -554,7 +1046,7 @@ function renderCustomers() {
     uniqueCustomers()
       .filter(
         c =>
-          c.name
+          (c.name || "")
             .toLowerCase()
             .includes(search)
       );
@@ -563,6 +1055,8 @@ function renderCustomers() {
     document.getElementById(
       "customerList"
     );
+
+  if (!container) return;
 
   if (!customers.length) {
 
@@ -576,37 +1070,43 @@ function renderCustomers() {
   }
 
   container.innerHTML =
-    customers.map((customer, i) => `
+    customers.map(
+      (customer, i) => `
 
-      <div class="item">
+        <div class="item">
 
-        <p>
-          <b>Sr No.:</b>
-          ${i + 1}
-        </p>
+          <p>
+            <b>Sr No.:</b>
+            ${i + 1}
+          </p>
 
-        <h3>
-          👤 ${escapeHTML(customer.name)}
-        </h3>
+          <h3>
+            👤 ${escapeHTML(
+              customer.name
+            )}
+          </h3>
 
-        <p>
-          📱 ${escapeHTML(customer.mobile)}
-        </p>
+          <p>
+            📱 ${escapeHTML(
+              customer.mobile
+            )}
+          </p>
 
-        <div class="item-actions">
+          <div class="item-actions">
 
-          <button
-            class="action-btn"
-            onclick="showPaperwork('${customer.projectId}')"
-          >
-            📄 Paper Work
-          </button>
+            <button
+              class="action-btn"
+              onclick="showPaperwork('${customer.projectId}')"
+            >
+              📄 Paper Work
+            </button>
+
+          </div>
 
         </div>
 
-      </div>
-
-    `).join("");
+      `
+    ).join("");
 }
 
 
@@ -616,10 +1116,17 @@ function showPaperwork(projectId) {
 
   const project =
     projects.find(
-      p => p.id === projectId
+      p => String(p.id) === String(projectId)
     );
 
-  if (!project) return;
+  if (!project) {
+
+    alert(
+      "Customer/project not found."
+    );
+
+    return;
+  }
 
   openFullPage();
 
@@ -639,15 +1146,21 @@ function showPaperwork(projectId) {
     <div class="item">
 
       <h3>
-        ${escapeHTML(project.customerName)}
+        ${escapeHTML(
+          project.customerName
+        )}
       </h3>
 
       <p>
-        📱 ${escapeHTML(project.customerMobile)}
+        📱 ${escapeHTML(
+          project.customerMobile
+        )}
       </p>
 
       <p>
-        🌐 ${escapeHTML(project.websiteName)}
+        🌐 ${escapeHTML(
+          project.websiteName
+        )}
       </p>
 
     </div>
@@ -664,7 +1177,9 @@ function showPaperwork(projectId) {
         <textarea
           id="policyEditor"
           class="policy-editor"
-        >${escapeHTML(policy)}</textarea>
+        >${escapeHTML(
+          policy
+        )}</textarea>
 
       </div>
 
@@ -684,15 +1199,26 @@ function showPaperwork(projectId) {
         </label>
 
         <div class="paperwork">
+
           ${
             project.signature
-              ? `<img
-                   src="${project.signature}"
-                   style="max-width:100%;background:white;border-radius:10px"
-                 >`
+              ? `
+                <img
+                  src="${escapeHTML(
+                    project.signature
+                  )}"
+                  style="
+                    max-width:100%;
+                    background:white;
+                    border-radius:10px;
+                  "
+                >
+              `
               : "No signature added yet."
           }
+
         </div>
+
 
         <button
           class="signature-open"
@@ -708,16 +1234,63 @@ function showPaperwork(projectId) {
 }
 
 
-function savePolicy() {
+/* ================= SAVE POLICY ================= */
 
-  policy =
+async function savePolicy() {
+
+  const editor =
     document.getElementById(
       "policyEditor"
-    ).value;
+    );
 
-  saveData();
+  if (!editor) return;
 
-  alert("✅ Private policy saved.");
+  policy =
+    editor.value;
+
+
+  try {
+
+    await apiRequest(
+      "/settings/policy",
+      {
+        method: "PUT",
+
+        body:
+          JSON.stringify({
+            policy
+          })
+      }
+    );
+
+
+    saveLocalCache();
+
+
+    alert(
+      "✅ Private policy saved to backend."
+    );
+
+  } catch (error) {
+
+    console.error(
+      "Policy save error:",
+      error
+    );
+
+
+    /*
+      Local cache bhi save kar rahe hain
+      taaki data browser me na kho.
+    */
+
+    saveLocalCache();
+
+
+    alert(
+      "⚠️ Backend save failed. Local copy saved."
+    );
+  }
 }
 
 
@@ -733,22 +1306,38 @@ function showAddWebsite() {
       ➕ ADD NEW WEBSITE
     </h1>
 
+
     <div class="type-buttons">
 
       <button
         class="type-card"
         onclick="showAddForm('real')"
       >
-        <strong>🌐 REAL WEBSITE</strong>
-        <span>Add customer website</span>
+
+        <strong>
+          🌐 REAL WEBSITE
+        </strong>
+
+        <span>
+          Add customer website
+        </span>
+
       </button>
+
 
       <button
         class="type-card"
         onclick="showAddForm('demo')"
       >
-        <strong>🧪 DEMO WEBSITE</strong>
-        <span>Add demo project</span>
+
+        <strong>
+          🧪 DEMO WEBSITE
+        </strong>
+
+        <span>
+          Add demo project
+        </span>
+
       </button>
 
     </div>
@@ -758,15 +1347,20 @@ function showAddWebsite() {
 
 /* ================= ADD FORM ================= */
 
-function showAddForm(type, editIndex = null) {
+function showAddForm(
+  type,
+  editIndex = null
+) {
 
   const edit =
     editIndex !== null
       ? projects[editIndex]
       : null;
 
+
   const isReal =
     type === "real";
+
 
   fullPageContent.innerHTML = `
 
@@ -777,21 +1371,35 @@ function showAddForm(type, editIndex = null) {
       ← Back
     </button>
 
+
     <h1 class="modal-title">
-      ${isReal
-        ? "🌐 REAL WEBSITE"
-        : "🧪 DEMO WEBSITE"}
+
+      ${
+        isReal
+          ? "🌐 REAL WEBSITE"
+          : "🧪 DEMO WEBSITE"
+      }
+
     </h1>
+
 
     <form
       class="form"
       onsubmit="
-        saveProject(event, '${type}', ${editIndex})
+        saveProject(
+          event,
+          '${type}',
+          ${editIndex}
+        )
       "
     >
 
+
       <div class="form-group">
-        <label>Website Name *</label>
+
+        <label>
+          Website Name *
+        </label>
 
         <input
           class="form-input"
@@ -799,33 +1407,51 @@ function showAddForm(type, editIndex = null) {
           required
           value="${
             edit
-              ? escapeHTML(edit.websiteName)
+              ? escapeHTML(
+                  edit.websiteName
+                )
               : ""
           }"
         >
+
       </div>
 
 
       <div class="form-group">
-        <label>Website Category *</label>
+
+        <label>
+          Website Category *
+        </label>
 
         <input
           class="form-input"
           id="category"
           required
+
           value="${
             edit
-              ? escapeHTML(edit.category)
+              ? escapeHTML(
+                  edit.category || ""
+                )
               : ""
           }"
-          placeholder="Business / Portfolio / E-commerce"
+
+          placeholder="
+            Business / Portfolio / E-commerce
+          "
         >
+
       </div>
 
 
       <div class="form-group">
+
         <label>
-          ${isReal ? "Sold Price" : "Price"} *
+          ${
+            isReal
+              ? "Sold Price"
+              : "Price"
+          } *
         </label>
 
         <input
@@ -834,12 +1460,16 @@ function showAddForm(type, editIndex = null) {
           type="number"
           min="0"
           required
+
           value="${
             edit
-              ? escapeHTML(edit.price)
+              ? escapeHTML(
+                  edit.price || ""
+                )
               : ""
           }"
         >
+
       </div>
 
 
@@ -858,12 +1488,18 @@ function showAddForm(type, editIndex = null) {
                 id="websiteURL"
                 type="url"
                 required
+
                 value="${
                   edit
-                    ? escapeHTML(edit.websiteURL || "")
+                    ? escapeHTML(
+                        edit.websiteURL || ""
+                      )
                     : ""
                 }"
-                placeholder="https://example.com"
+
+                placeholder="
+                  https://example.com
+                "
               >
 
             </div>
@@ -879,9 +1515,12 @@ function showAddForm(type, editIndex = null) {
                 class="form-input"
                 id="customerName"
                 required
+
                 value="${
                   edit
-                    ? escapeHTML(edit.customerName || "")
+                    ? escapeHTML(
+                        edit.customerName || ""
+                      )
                     : ""
                 }"
               >
@@ -900,9 +1539,12 @@ function showAddForm(type, editIndex = null) {
                 id="customerMobile"
                 type="tel"
                 required
+
                 value="${
                   edit
-                    ? escapeHTML(edit.customerMobile || "")
+                    ? escapeHTML(
+                        edit.customerMobile || ""
+                      )
                     : ""
                 }"
               >
@@ -910,7 +1552,9 @@ function showAddForm(type, editIndex = null) {
             </div>
 
           `
+
           : `
+
             <div class="form-group">
 
               <label>
@@ -921,14 +1565,22 @@ function showAddForm(type, editIndex = null) {
                 class="form-input"
                 id="websiteURL"
                 type="url"
+
                 value="${
                   edit
-                    ? escapeHTML(edit.websiteURL || "")
+                    ? escapeHTML(
+                        edit.websiteURL || ""
+                      )
                     : ""
                 }"
+
+                placeholder="
+                  https://example.com
+                "
               >
 
             </div>
+
           `
       }
 
@@ -941,10 +1593,14 @@ function showAddForm(type, editIndex = null) {
 
         <textarea
           id="description"
-          placeholder="Write project information..."
+          placeholder="
+            Write project information...
+          "
         >${
           edit
-            ? escapeHTML(edit.description || "")
+            ? escapeHTML(
+                edit.description || ""
+              )
             : ""
         }</textarea>
 
@@ -964,7 +1620,9 @@ function showAddForm(type, editIndex = null) {
               <textarea
                 id="formPolicy"
                 class="policy-editor"
-              >${escapeHTML(policy)}</textarea>
+              >${escapeHTML(
+                policy
+              )}</textarea>
 
             </div>
 
@@ -972,7 +1630,9 @@ function showAddForm(type, editIndex = null) {
             <button
               type="button"
               class="signature-open"
-              onclick="openSignatureForNewProject()"
+              onclick="
+                openSignatureForNewProject()
+              "
             >
               ✍️ Customer Signature
             </button>
@@ -982,10 +1642,13 @@ function showAddForm(type, editIndex = null) {
               id="newSignaturePreview"
               class="paperwork"
             >
+
               No signature added yet.
+
             </div>
 
           `
+
           : ""
       }
 
@@ -994,20 +1657,62 @@ function showAddForm(type, editIndex = null) {
         class="submit-btn"
         type="submit"
       >
+
         🚀 SUBMIT & SAVE
+
       </button>
+
 
     </form>
   `;
 
+
   window.currentNewSignature =
     edit?.signature || null;
+
+
+  /*
+    Existing signature ka preview
+  */
+
+  if (
+    edit &&
+    edit.signature
+  ) {
+
+    const preview =
+      document.getElementById(
+        "newSignaturePreview"
+      );
+
+    if (preview) {
+
+      preview.innerHTML = `
+
+        <p>
+          ✅ Existing Signature
+        </p>
+
+        <img
+          src="${escapeHTML(
+            edit.signature
+          )}"
+          style="
+            max-width:100%;
+            background:white;
+            border-radius:10px;
+          "
+        >
+
+      `;
+    }
+  }
 }
 
 
 /* ================= SAVE PROJECT ================= */
 
-function saveProject(
+async function saveProject(
   event,
   type,
   editIndex
@@ -1015,33 +1720,57 @@ function saveProject(
 
   event.preventDefault();
 
+
   const websiteName =
     document
-      .getElementById("websiteName")
-      .value.trim();
+      .getElementById(
+        "websiteName"
+      )
+      .value
+      .trim();
+
 
   const category =
     document
-      .getElementById("category")
-      .value.trim();
+      .getElementById(
+        "category"
+      )
+      .value
+      .trim();
+
 
   const price =
     document
-      .getElementById("price")
-      .value.trim();
+      .getElementById(
+        "price"
+      )
+      .value
+      .trim();
+
 
   const websiteURL =
     document
-      .getElementById("websiteURL")
-      .value.trim();
+      .getElementById(
+        "websiteURL"
+      )
+      .value
+      .trim();
+
 
   const description =
     document
-      .getElementById("description")
-      .value.trim();
+      .getElementById(
+        "description"
+      )
+      .value
+      .trim();
 
 
-  if (!websiteName || !category || !price) {
+  if (
+    !websiteName ||
+    !category ||
+    !price
+  ) {
 
     alert(
       "Please fill all compulsory fields."
@@ -1052,7 +1781,8 @@ function saveProject(
 
 
   const old =
-    editIndex !== null
+    editIndex !== null &&
+    editIndex !== undefined
       ? projects[editIndex]
       : {};
 
@@ -1085,9 +1815,10 @@ function saveProject(
 
     date:
       old.date ||
-      new Date().toLocaleDateString(
-        "en-IN"
-      ),
+      new Date()
+        .toLocaleDateString(
+          "en-IN"
+        ),
 
     status:
       type === "real"
@@ -1096,60 +1827,213 @@ function saveProject(
   };
 
 
+  /* ================= REAL PROJECT ================= */
+
   if (type === "real") {
 
     project.customerName =
       document
-        .getElementById("customerName")
-        .value.trim();
+        .getElementById(
+          "customerName"
+        )
+        .value
+        .trim();
+
 
     project.customerMobile =
       document
-        .getElementById("customerMobile")
-        .value.trim();
+        .getElementById(
+          "customerMobile"
+        )
+        .value
+        .trim();
+
 
     project.soldPrice =
       price;
+
 
     const policyInput =
       document.getElementById(
         "formPolicy"
       );
 
+
     if (policyInput) {
-      policy = policyInput.value;
+
+      policy =
+        policyInput.value;
+    }
+
+
+    if (
+      !project.customerName ||
+      !project.customerMobile
+    ) {
+
+      alert(
+        "Customer name and mobile required."
+      );
+
+      return;
     }
   }
 
 
-  if (editIndex === null) {
+  try {
 
-    projects.push(project);
+    let savedProject;
 
-    alert(
-      "✅ Website successfully saved!"
+
+    /* ================= EDIT ================= */
+
+    if (
+      editIndex !== null &&
+      editIndex !== undefined
+    ) {
+
+      const result =
+        await apiRequest(
+          `/projects/${encodeURIComponent(
+            project.id
+          )}`,
+          {
+            method: "PUT",
+
+            body:
+              JSON.stringify(
+                project
+              )
+          }
+        );
+
+
+      savedProject =
+        result.project ||
+        result.data ||
+        result;
+
+
+      projects[editIndex] =
+        savedProject;
+
+
+      alert(
+        "✅ Website successfully updated!"
+      );
+
+
+    } else {
+
+      /* ================= NEW ================= */
+
+      const result =
+        await apiRequest(
+          "/projects",
+          {
+            method: "POST",
+
+            body:
+              JSON.stringify(
+                project
+              )
+          }
+        );
+
+
+      savedProject =
+        result.project ||
+        result.data ||
+        result;
+
+
+      /*
+        Backend agar ID generate kare
+        to uska ID use hoga.
+      */
+
+      if (
+        savedProject &&
+        savedProject.id
+      ) {
+
+        project.id =
+          savedProject.id;
+      }
+
+
+      projects.push(
+        savedProject &&
+        savedProject.id
+          ? savedProject
+          : project
+      );
+
+
+      alert(
+        "✅ Website successfully saved!"
+      );
+    }
+
+
+    saveLocalCache();
+
+
+    /*
+      Policy bhi backend me save
+      kar do agar real website hai.
+    */
+
+    if (type === "real") {
+
+      try {
+
+        await apiRequest(
+          "/settings/policy",
+          {
+            method: "PUT",
+
+            body:
+              JSON.stringify({
+                policy
+              })
+          }
+        );
+
+      } catch (policyError) {
+
+        console.error(
+          "Policy backend error:",
+          policyError
+        );
+      }
+    }
+
+
+    window.currentNewSignature =
+      null;
+
+
+    closeFullPage();
+
+    updateStats();
+
+
+  } catch (error) {
+
+    console.error(
+      "Save project error:",
+      error
     );
 
-  } else {
-
-    projects[editIndex] =
-      project;
 
     alert(
-      "✅ Website successfully updated!"
+      "❌ Backend me website save nahi hui.\n\n" +
+      error.message
     );
   }
-
-
-  saveData();
-
-  window.currentNewSignature =
-    null;
-
-  closeFullPage();
 }
-
-
+// part 3  //
 /* ================= FAVORITES ================= */
 
 function showFavorites() {
@@ -1168,12 +2052,18 @@ function showFavorites() {
     </h1>
 
     <div id="favoriteList"></div>
+
   `;
+
 
   const container =
     document.getElementById(
       "favoriteList"
     );
+
+
+  if (!container) return;
+
 
   if (!favorites.length) {
 
@@ -1186,6 +2076,7 @@ function showFavorites() {
     return;
   }
 
+
   container.innerHTML =
     favorites.map(
       p => `
@@ -1193,42 +2084,128 @@ function showFavorites() {
         <div class="item">
 
           <h3>
-            ⭐ ${escapeHTML(p.websiteName)}
+            ⭐ ${escapeHTML(
+              p.websiteName
+            )}
           </h3>
 
           <p>
             Category:
-            ${escapeHTML(p.category)}
+            ${escapeHTML(
+              p.category || ""
+            )}
           </p>
 
           <p>
             Price:
-            ₹${escapeHTML(p.price)}
+            ₹${escapeHTML(
+              p.price || "0"
+            )}
           </p>
 
+          ${
+            p.websiteURL
+              ? `
+                <p>
+
+                  <a
+                    href="${escapeHTML(
+                      p.websiteURL
+                    )}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style="color:#00e5ff"
+                  >
+                    🔗 Open Live Website
+                  </a>
+
+                </p>
+              `
+              : ""
+          }
+
         </div>
+
       `
     ).join("");
 }
 
 
-function toggleFavorite(id) {
+/* ================= TOGGLE FAVORITE ================= */
+
+async function toggleFavorite(id) {
 
   const project =
     projects.find(
-      p => p.id === id
+      p =>
+        String(p.id) ===
+        String(id)
     );
+
 
   if (!project) return;
 
-  project.favorite =
+
+  const newFavorite =
     !project.favorite;
 
-  saveData();
 
-  showWebsiteList(
-    project.type
-  );
+  /*
+    Backend par favorite update
+  */
+
+  try {
+
+    const result =
+      await apiRequest(
+        `/projects/${encodeURIComponent(
+          project.id
+        )}`,
+        {
+          method: "PUT",
+
+          body:
+            JSON.stringify({
+              ...project,
+              favorite:
+                newFavorite
+            })
+        }
+      );
+
+
+    const updated =
+      result.project ||
+      result.data ||
+      result;
+
+
+    project.favorite =
+      updated.favorite !== undefined
+        ? updated.favorite
+        : newFavorite;
+
+
+    saveLocalCache();
+
+
+    showWebsiteList(
+      project.type
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "Favorite update error:",
+      error
+    );
+
+
+    alert(
+      "❌ Favorite backend me update nahi hua."
+    );
+  }
 }
 
 
@@ -1242,19 +2219,24 @@ function showEditDelete() {
 
   openFullPage();
 
+
   fullPageContent.innerHTML = `
 
     <h1 class="modal-title">
       ✏️ EDIT / DELETE
     </h1>
 
-    <p style="
-      color:#94a3b8;
-      margin-bottom:20px;
-    ">
+
+    <p
+      style="
+        color:#94a3b8;
+        margin-bottom:20px;
+      "
+    >
       Only this section can edit or delete
       saved websites.
     </p>
+
 
     <input
       class="search"
@@ -1263,8 +2245,11 @@ function showEditDelete() {
       oninput="renderEditDelete()"
     >
 
+
     <div id="editDeleteList"></div>
+
   `;
+
 
   renderEditDelete();
 }
@@ -1277,30 +2262,43 @@ function renderEditDelete() {
       "editSearch"
     );
 
+
   const search =
     input
-      ? input.value.toLowerCase()
+      ? input.value
+          .toLowerCase()
       : "";
+
 
   const list =
     projects.filter(
       p =>
-        (p.websiteName || "")
-          .toLowerCase()
-          .includes(search)
+        (
+          p.websiteName ||
+          ""
+        )
+        .toLowerCase()
+        .includes(search)
     );
+
 
   const container =
     document.getElementById(
       "editDeleteList"
     );
 
+
+  if (!container) return;
+
+
   if (!list.length) {
 
     container.innerHTML = `
+
       <div class="empty">
         No website found.
       </div>
+
     `;
 
     return;
@@ -1308,66 +2306,91 @@ function renderEditDelete() {
 
 
   container.innerHTML =
-    list.map(project => {
+    list.map(
+      project => {
 
-      const index =
-        projects.findIndex(
-          p => p.id === project.id
-        );
+        const index =
+          projects.findIndex(
+            p =>
+              String(p.id) ===
+              String(project.id)
+          );
 
-      return `
 
-        <div class="item">
+        return `
 
-          <h3>
-            ${escapeHTML(project.websiteName)}
-          </h3>
+          <div class="item">
 
-          <span class="badge">
-            ${project.type.toUpperCase()}
-          </span>
+            <h3>
+              ${escapeHTML(
+                project.websiteName
+              )}
+            </h3>
 
-          <p>
-            Category:
-            ${escapeHTML(project.category)}
-          </p>
 
-          <p>
-            Price:
-            ₹${escapeHTML(project.price)}
-          </p>
+            <span class="badge">
+              ${escapeHTML(
+                (
+                  project.type ||
+                  ""
+                ).toUpperCase()
+              )}
+            </span>
 
-          <div class="item-actions">
 
-            <button
-              class="action-btn"
-              onclick="editProject(${index})"
-            >
-              ✏️ Edit
-            </button>
+            <p>
+              Category:
+              ${escapeHTML(
+                project.category || ""
+              )}
+            </p>
 
-            <button
-              class="action-btn delete-btn"
-              onclick="deleteProject(${index})"
-            >
-              🗑️ Delete
-            </button>
+
+            <p>
+              Price:
+              ₹${escapeHTML(
+                project.price || "0"
+              )}
+            </p>
+
+
+            <div class="item-actions">
+
+              <button
+                class="action-btn"
+                onclick="editProject(${index})"
+              >
+                ✏️ Edit
+              </button>
+
+
+              <button
+                class="action-btn delete-btn"
+                onclick="deleteProject(${index})"
+              >
+                🗑️ Delete
+              </button>
+
+            </div>
 
           </div>
 
-        </div>
-      `;
-
-    }).join("");
+        `;
+      }
+    ).join("");
 }
 
+
+/* ================= EDIT ================= */
 
 function editProject(index) {
 
   const project =
     projects[index];
 
+
   if (!project) return;
+
 
   showAddForm(
     project.type,
@@ -1376,28 +2399,70 @@ function editProject(index) {
 }
 
 
-function deleteProject(index) {
+/* ================= DELETE ================= */
+
+async function deleteProject(index) {
 
   const project =
     projects[index];
 
+
   if (!project) return;
+
 
   const confirmDelete =
     confirm(
       `Delete "${project.websiteName}"?`
     );
 
-  if (!confirmDelete) return;
 
-  projects.splice(
-    index,
-    1
-  );
+  if (!confirmDelete) {
+    return;
+  }
 
-  saveData();
 
-  renderEditDelete();
+  try {
+
+    await apiRequest(
+      `/projects/${encodeURIComponent(
+        project.id
+      )}`,
+      {
+        method: "DELETE"
+      }
+    );
+
+
+    projects.splice(
+      index,
+      1
+    );
+
+
+    saveLocalCache();
+
+
+    alert(
+      "✅ Website deleted successfully."
+    );
+
+
+    renderEditDelete();
+
+
+  } catch (error) {
+
+    console.error(
+      "Delete error:",
+      error
+    );
+
+
+    alert(
+      "❌ Website backend se delete nahi hui.\n\n" +
+      error.message
+    );
+  }
 }
 
 
@@ -1408,69 +2473,139 @@ let signatureCanvas =
     "signatureCanvas"
   );
 
-let signatureContext =
-  signatureCanvas.getContext("2d");
 
-let drawing = false;
+let signatureContext =
+  signatureCanvas
+    ? signatureCanvas.getContext("2d")
+    : null;
+
+
+let drawing =
+  false;
+
 
 let signatureProjectId =
   null;
 
 
+/* ================= RESIZE CANVAS ================= */
+
 function resizeSignatureCanvas() {
 
+  if (
+    !signatureCanvas ||
+    !signatureContext
+  ) {
+    return;
+  }
+
+
   const ratio =
-    window.devicePixelRatio || 1;
+    window.devicePixelRatio ||
+    1;
+
 
   const rect =
-    signatureCanvas.getBoundingClientRect();
+    signatureCanvas
+      .getBoundingClientRect();
+
 
   signatureCanvas.width =
     rect.width * ratio;
 
+
   signatureCanvas.height =
     rect.height * ratio;
+
+
+  /*
+    Canvas scaling reset
+  */
+
+  signatureContext.setTransform(
+    1,
+    0,
+    0,
+    1,
+    0,
+    0
+  );
+
 
   signatureContext.scale(
     ratio,
     ratio
   );
 
-  signatureContext.lineWidth = 2;
+
+  signatureContext.lineWidth =
+    2;
+
 
   signatureContext.lineCap =
     "round";
+
 
   signatureContext.strokeStyle =
     "#111827";
 }
 
 
+/* ================= RESIZE EVENT ================= */
+
 window.addEventListener(
   "resize",
   () => {
+
+    const signaturePage =
+      document.getElementById(
+        "signaturePage"
+      );
+
+
     if (
-      !document
-        .getElementById("signaturePage")
-        .classList.contains("hidden")
+      signaturePage &&
+      !signaturePage.classList.contains(
+        "hidden"
+      )
     ) {
+
       resizeSignatureCanvas();
     }
+
   }
 );
 
 
-function getCanvasPosition(event) {
+/* ================= CANVAS POSITION ================= */
+
+function getCanvasPosition(
+  event
+) {
+
+  if (
+    !signatureCanvas
+  ) {
+    return {
+      x: 0,
+      y: 0
+    };
+  }
+
 
   const rect =
-    signatureCanvas.getBoundingClientRect();
+    signatureCanvas
+      .getBoundingClientRect();
+
 
   const point =
     event.touches
       ? event.touches[0]
       : event;
 
+
   return {
+
     x:
       point.clientX -
       rect.left,
@@ -1478,20 +2613,37 @@ function getCanvasPosition(event) {
     y:
       point.clientY -
       rect.top
+
   };
 }
 
 
+/* ================= START DRAWING ================= */
+
 function startDrawing(event) {
+
+  if (
+    !signatureContext
+  ) {
+    return;
+  }
+
 
   event.preventDefault();
 
-  drawing = true;
+
+  drawing =
+    true;
+
 
   const point =
-    getCanvasPosition(event);
+    getCanvasPosition(
+      event
+    );
+
 
   signatureContext.beginPath();
+
 
   signatureContext.moveTo(
     point.x,
@@ -1500,109 +2652,172 @@ function startDrawing(event) {
 }
 
 
+/* ================= DRAW ================= */
+
 function drawSignature(event) {
 
-  if (!drawing) return;
+  if (
+    !drawing ||
+    !signatureContext
+  ) {
+    return;
+  }
+
 
   event.preventDefault();
 
+
   const point =
-    getCanvasPosition(event);
+    getCanvasPosition(
+      event
+    );
+
 
   signatureContext.lineTo(
     point.x,
     point.y
   );
 
+
   signatureContext.stroke();
 }
 
 
+/* ================= STOP ================= */
+
 function stopDrawing() {
 
-  drawing = false;
+  drawing =
+    false;
 }
 
 
-signatureCanvas.addEventListener(
-  "mousedown",
-  startDrawing
-);
+/* ================= CANVAS EVENTS ================= */
 
-signatureCanvas.addEventListener(
-  "mousemove",
-  drawSignature
-);
+if (
+  signatureCanvas
+) {
 
-signatureCanvas.addEventListener(
-  "mouseup",
-  stopDrawing
-);
-
-signatureCanvas.addEventListener(
-  "mouseleave",
-  stopDrawing
-);
-
-signatureCanvas.addEventListener(
-  "touchstart",
-  startDrawing,
-  { passive: false }
-);
-
-signatureCanvas.addEventListener(
-  "touchmove",
-  drawSignature,
-  { passive: false }
-);
-
-signatureCanvas.addEventListener(
-  "touchend",
-  stopDrawing
-);
+  signatureCanvas.addEventListener(
+    "mousedown",
+    startDrawing
+  );
 
 
-/* Open existing customer signature */
+  signatureCanvas.addEventListener(
+    "mousemove",
+    drawSignature
+  );
 
-function openSignature(projectId) {
+
+  signatureCanvas.addEventListener(
+    "mouseup",
+    stopDrawing
+  );
+
+
+  signatureCanvas.addEventListener(
+    "mouseleave",
+    stopDrawing
+  );
+
+
+  signatureCanvas.addEventListener(
+    "touchstart",
+    startDrawing,
+    {
+      passive: false
+    }
+  );
+
+
+  signatureCanvas.addEventListener(
+    "touchmove",
+    drawSignature,
+    {
+      passive: false
+    }
+  );
+
+
+  signatureCanvas.addEventListener(
+    "touchend",
+    stopDrawing
+  );
+}
+
+
+/* ================= OPEN EXISTING SIGNATURE ================= */
+
+function openSignature(
+  projectId
+) {
 
   signatureProjectId =
     projectId;
 
-  document
-    .getElementById(
+
+  const page =
+    document.getElementById(
       "signaturePage"
-    )
-    .classList.remove("hidden");
+    );
+
+
+  if (!page) return;
+
+
+  page.classList.remove(
+    "hidden"
+  );
+
 
   resizeSignatureCanvas();
+
 
   retrySignature();
 }
 
 
-/* Signature for new customer */
+/* ================= NEW PROJECT SIGNATURE ================= */
 
 function openSignatureForNewProject() {
 
   signatureProjectId =
     null;
 
-  document
-    .getElementById(
+
+  const page =
+    document.getElementById(
       "signaturePage"
-    )
-    .classList.remove("hidden");
+    );
+
+
+  if (!page) return;
+
+
+  page.classList.remove(
+    "hidden"
+  );
+
 
   resizeSignatureCanvas();
+
 
   retrySignature();
 }
 
 
-/* Retry */
+/* ================= RETRY SIGNATURE ================= */
 
 function retrySignature() {
+
+  if (
+    !signatureCanvas ||
+    !signatureContext
+  ) {
+    return;
+  }
+
 
   signatureContext.clearRect(
     0,
@@ -1613,67 +2828,168 @@ function retrySignature() {
 }
 
 
-/* Confirm */
+/* ================= CONFIRM SIGNATURE ================= */
 
-function confirmSignature() {
+async function confirmSignature() {
+
+  if (
+    !signatureCanvas
+  ) {
+    return;
+  }
+
 
   const image =
     signatureCanvas.toDataURL(
       "image/png"
     );
 
-  if (signatureProjectId) {
+
+  /* ================= EXISTING PROJECT ================= */
+
+  if (
+    signatureProjectId
+  ) {
 
     const project =
       projects.find(
-        p => p.id === signatureProjectId
+        p =>
+          String(p.id) ===
+          String(
+            signatureProjectId
+          )
       );
 
-    if (project) {
 
-      project.signature =
-        image;
+    if (!project) {
 
-      saveData();
+      alert(
+        "Project not found."
+      );
+
+      return;
+    }
+
+
+    try {
+
+      const updatedProject = {
+
+        ...project,
+
+        signature:
+          image
+
+      };
+
+
+      const result =
+        await apiRequest(
+          `/projects/${encodeURIComponent(
+            project.id
+          )}`,
+          {
+            method: "PUT",
+
+            body:
+              JSON.stringify(
+                updatedProject
+              )
+          }
+        );
+
+
+      const saved =
+        result.project ||
+        result.data ||
+        result;
+
+
+      const index =
+        projects.findIndex(
+          p =>
+            String(p.id) ===
+            String(project.id)
+        );
+
+
+      if (index !== -1) {
+
+        projects[index] =
+          saved;
+      }
+
+
+      saveLocalCache();
+
 
       alert(
         "✅ Signature saved successfully."
       );
 
+
       closeSignature();
 
+
       showPaperwork(
-        signatureProjectId
+        project.id
       );
 
-      return;
+
+    } catch (error) {
+
+      console.error(
+        "Signature save error:",
+        error
+      );
+
+
+      alert(
+        "❌ Signature backend me save nahi hui.\n\n" +
+        error.message
+      );
     }
+
+
+    return;
   }
 
 
+  /* ================= NEW PROJECT ================= */
+
   window.currentNewSignature =
     image;
+
 
   const preview =
     document.getElementById(
       "newSignaturePreview"
     );
 
+
   if (preview) {
 
     preview.innerHTML = `
-      <p>✅ Signature confirmed</p>
+
+      <p>
+        ✅ Signature confirmed
+      </p>
+
 
       <img
-        src="${image}"
+        src="${escapeHTML(
+          image
+        )}"
         style="
           max-width:100%;
           background:white;
           border-radius:10px;
         "
       >
+
     `;
   }
+
 
   closeSignature();
 }
@@ -1681,42 +2997,83 @@ function confirmSignature() {
 
 /* ================= CAMERA ================= */
 
-let cameraStream = null;
+let cameraStream =
+  null;
 
+
+/* ================= USE CAMERA ================= */
 
 async function useCamera() {
 
   try {
 
+    if (
+      !navigator.mediaDevices ||
+      !navigator.mediaDevices.getUserMedia
+    ) {
+
+      alert(
+        "Camera browser me available nahi hai."
+      );
+
+      return;
+    }
+
+
     cameraStream =
       await navigator.mediaDevices.getUserMedia({
+
         video: {
-          facingMode: "environment"
+          facingMode:
+            "environment"
         },
+
         audio: false
+
       });
+
 
     const video =
       document.getElementById(
         "cameraPreview"
       );
 
+
+    if (!video) {
+      return;
+    }
+
+
     video.srcObject =
       cameraStream;
+
 
     video.classList.remove(
       "hidden"
     );
 
-    document
-      .getElementById(
+
+    const captureBtn =
+      document.getElementById(
         "captureBtn"
-      )
-      .classList.remove(
-        "hidden"
       );
 
+
+    if (captureBtn) {
+
+      captureBtn.classList.remove(
+        "hidden"
+      );
+    }
+
+
   } catch (error) {
+
+    console.error(
+      "Camera error:",
+      error
+    );
+
 
     alert(
       "Camera permission nahi mili. Browser me camera permission allow karo."
@@ -1725,26 +3082,43 @@ async function useCamera() {
 }
 
 
-function capturePhoto() {
+/* ================= CAPTURE PHOTO ================= */
+
+async function capturePhoto() {
 
   const video =
     document.getElementById(
       "cameraPreview"
     );
 
+
   const canvas =
     document.getElementById(
       "cameraCanvas"
     );
 
+
+  if (
+    !video ||
+    !canvas
+  ) {
+    return;
+  }
+
+
   canvas.width =
     video.videoWidth;
+
 
   canvas.height =
     video.videoHeight;
 
+
   const context =
-    canvas.getContext("2d");
+    canvas.getContext(
+      "2d"
+    );
+
 
   context.drawImage(
     video,
@@ -1754,6 +3128,7 @@ function capturePhoto() {
     canvas.height
   );
 
+
   const image =
     canvas.toDataURL(
       "image/jpeg",
@@ -1761,44 +3136,125 @@ function capturePhoto() {
     );
 
 
-  if (signatureProjectId) {
+  /* ================= EXISTING PROJECT ================= */
+
+  if (
+    signatureProjectId
+  ) {
 
     const project =
       projects.find(
-        p => p.id === signatureProjectId
+        p =>
+          String(p.id) ===
+          String(
+            signatureProjectId
+          )
       );
 
-    if (project) {
 
-      project.signature =
-        image;
+    if (!project) {
+      return;
+    }
 
-      saveData();
+
+    try {
+
+      const updatedProject = {
+
+        ...project,
+
+        signature:
+          image
+
+      };
+
+
+      const result =
+        await apiRequest(
+          `/projects/${encodeURIComponent(
+            project.id
+          )}`,
+          {
+            method: "PUT",
+
+            body:
+              JSON.stringify(
+                updatedProject
+              )
+          }
+        );
+
+
+      const saved =
+        result.project ||
+        result.data ||
+        result;
+
+
+      const index =
+        projects.findIndex(
+          p =>
+            String(p.id) ===
+            String(project.id)
+        );
+
+
+      if (index !== -1) {
+
+        projects[index] =
+          saved;
+      }
+
+
+      saveLocalCache();
+
 
       stopCamera();
+
 
       alert(
         "✅ Signature photo saved."
       );
 
+
       closeSignature();
 
+
       showPaperwork(
-        signatureProjectId
+        project.id
       );
 
-      return;
+
+    } catch (error) {
+
+      console.error(
+        "Camera signature error:",
+        error
+      );
+
+
+      alert(
+        "❌ Signature photo save nahi hui.\n\n" +
+        error.message
+      );
     }
+
+
+    return;
   }
 
 
+  /* ================= NEW PROJECT ================= */
+
   window.currentNewSignature =
     image;
+
 
   const preview =
     document.getElementById(
       "newSignaturePreview"
     );
+
 
   if (preview) {
 
@@ -1808,8 +3264,11 @@ function capturePhoto() {
         ✅ Signature photo confirmed
       </p>
 
+
       <img
-        src="${image}"
+        src="${escapeHTML(
+          image
+        )}"
         style="
           width:100%;
           max-height:300px;
@@ -1822,11 +3281,14 @@ function capturePhoto() {
     `;
   }
 
+
   stopCamera();
+
 
   closeSignature();
 }
-
+//part 4//
+/* ================= STOP CAMERA ================= */
 
 function stopCamera() {
 
@@ -1838,52 +3300,79 @@ function stopCamera() {
         track => track.stop()
       );
 
-    cameraStream = null;
+    cameraStream =
+      null;
   }
+
 
   const video =
     document.getElementById(
       "cameraPreview"
     );
 
-  video.srcObject = null;
 
-  video.classList.add(
-    "hidden"
-  );
+  if (video) {
 
-  document
-    .getElementById(
-      "captureBtn"
-    )
-    .classList.add(
+    video.srcObject =
+      null;
+
+    video.classList.add(
       "hidden"
     );
+  }
+
+
+  const captureBtn =
+    document.getElementById(
+      "captureBtn"
+    );
+
+
+  if (captureBtn) {
+
+    captureBtn.classList.add(
+      "hidden"
+    );
+  }
 }
 
+
+/* ================= CLOSE SIGNATURE ================= */
 
 function closeSignature() {
 
   stopCamera();
 
-  document
-    .getElementById(
+
+  const page =
+    document.getElementById(
       "signaturePage"
-    )
-    .classList.add("hidden");
+    );
+
+
+  if (page) {
+
+    page.classList.add(
+      "hidden"
+    );
+  }
 }
 
 
-/* ================= BANNER EDIT ================= */
+/* =========================================================
+   BANNER EDIT
+========================================================= */
 
 function showBannerEditor() {
 
   openFullPage();
 
-  const savedBanner =
+
+  let savedBanner =
     localStorage.getItem(
       "twd_banner"
     );
+
 
   fullPageContent.innerHTML = `
 
@@ -1891,12 +3380,16 @@ function showBannerEditor() {
       🖼️ BANNER EDIT
     </h1>
 
-    <p style="
-      color:#94a3b8;
-      margin-bottom:20px;
-    ">
+
+    <p
+      style="
+        color:#94a3b8;
+        margin-bottom:20px;
+      "
+    >
       Mobile/computer se image select karo.
     </p>
+
 
     <div class="banner-upload">
 
@@ -1907,6 +3400,7 @@ function showBannerEditor() {
         onchange="previewBanner(event)"
       >
 
+
       <div
         id="bannerPreview"
         class="banner-preview"
@@ -1915,6 +3409,7 @@ function showBannerEditor() {
           url('${savedBanner || ""}');
         "
       ></div>
+
 
       <button
         class="submit-btn"
@@ -1928,15 +3423,44 @@ function showBannerEditor() {
 }
 
 
+/* ================= PREVIEW BANNER ================= */
+
 function previewBanner(event) {
 
   const file =
     event.target.files[0];
 
-  if (!file) return;
+
+  if (!file) {
+    return;
+  }
+
+
+  /*
+    Basic image size check.
+    Bahut badi image backend ko
+    unnecessary heavy bana sakti hai.
+  */
+
+  if (
+    file.size >
+    10 * 1024 * 1024
+  ) {
+
+    alert(
+      "Image 10MB se chhoti rakho."
+    );
+
+    event.target.value =
+      "";
+
+    return;
+  }
+
 
   const reader =
     new FileReader();
+
 
   reader.onload =
     function(e) {
@@ -1946,20 +3470,32 @@ function previewBanner(event) {
           "bannerPreview"
         );
 
-      preview.style.backgroundImage =
-        `url("${e.target.result}")`;
+
+      if (preview) {
+
+        preview.style.backgroundImage =
+          `url("${e.target.result}")`;
+      }
+
 
       window.newBanner =
         e.target.result;
     };
 
-  reader.readAsDataURL(file);
+
+  reader.readAsDataURL(
+    file
+  );
 }
 
 
-function saveBanner() {
+/* ================= SAVE BANNER ================= */
 
-  if (!window.newBanner) {
+async function saveBanner() {
+
+  if (
+    !window.newBanner
+  ) {
 
     alert(
       "Pehle banner image select karo."
@@ -1968,23 +3504,78 @@ function saveBanner() {
     return;
   }
 
-  localStorage.setItem(
-    "twd_banner",
-    window.newBanner
-  );
 
-  applyBanner();
+  try {
 
-  window.newBanner =
-    null;
+    await apiRequest(
+      "/settings/banner",
+      {
+        method: "PUT",
 
-  alert(
-    "✅ Banner successfully changed."
-  );
+        body:
+          JSON.stringify({
+            banner:
+              window.newBanner
+          })
+      }
+    );
 
-  closeFullPage();
+
+    /*
+      Local cache bhi rakho.
+    */
+
+    localStorage.setItem(
+      "twd_banner",
+      window.newBanner
+    );
+
+
+    applyBanner();
+
+
+    window.newBanner =
+      null;
+
+
+    alert(
+      "✅ Banner successfully changed."
+    );
+
+
+    closeFullPage();
+
+
+  } catch (error) {
+
+    console.error(
+      "Banner save error:",
+      error
+    );
+
+
+    /*
+      Backend fail ho to
+      local browser copy save.
+    */
+
+    localStorage.setItem(
+      "twd_banner",
+      window.newBanner
+    );
+
+
+    applyBanner();
+
+
+    alert(
+      "⚠️ Backend banner save failed.\nLocal copy saved."
+    );
+  }
 }
 
+
+/* ================= APPLY BANNER ================= */
 
 function applyBanner() {
 
@@ -1993,47 +3584,152 @@ function applyBanner() {
       "twd_banner"
     );
 
-  if (!banner) return;
+
+  if (!banner) {
+    return;
+  }
+
 
   const bg =
     document.getElementById(
       "mainBg"
     );
 
+
+  if (!bg) {
+    return;
+  }
+
+
   bg.style.backgroundImage =
     `url("${banner}")`;
 
+
   bg.style.backgroundSize =
     "cover";
+
 
   bg.style.backgroundPosition =
     "center";
 }
 
 
-/* ================= SECURITY DISPLAY ================= */
+/* =========================================================
+   LOGOUT
+========================================================= */
+
+function logout() {
+
+  const confirmLogout =
+    confirm(
+      "Kya aap logout karna chahte ho?"
+    );
+
+
+  if (!confirmLogout) {
+    return;
+  }
+
+
+  backendToken =
+    "";
+
+
+  sessionStorage.removeItem(
+    "twd_backend_token"
+  );
+
+
+  sessionStorage.removeItem(
+    "twd_logged_in"
+  );
+
+
+  const mainWebsite =
+    document.getElementById(
+      "mainWebsite"
+    );
+
+
+  const loginPage =
+    document.getElementById(
+      "loginPage"
+    );
+
+
+  if (mainWebsite) {
+
+    mainWebsite.classList.add(
+      "hidden"
+    );
+  }
+
+
+  if (loginPage) {
+
+    loginPage.classList.remove(
+      "hidden"
+    );
+  }
+
+
+  const password =
+    document.getElementById(
+      "loginPassword"
+    );
+
+
+  if (password) {
+
+    password.value =
+      "";
+  }
+
+
+  const error =
+    document.getElementById(
+      "loginError"
+    );
+
+
+  if (error) {
+
+    error.textContent =
+      "";
+  }
+}
+
+
+/* =========================================================
+   SECURITY DISPLAY
+========================================================= */
 
 function escapeHTML(value) {
 
   return String(
     value ?? ""
   )
+
     .replace(
       /&/g,
       "&amp;"
     )
+
     .replace(
       /</g,
       "&lt;"
     )
+
     .replace(
       />/g,
       "&gt;"
     )
+
     .replace(
       /"/g,
       "&quot;"
     )
+
     .replace(
       /'/g,
       "&#039;"
@@ -2041,7 +3737,124 @@ function escapeHTML(value) {
 }
 
 
-/* ================= START ================= */
+/* =========================================================
+   BACKEND CONNECTION TEST
+========================================================= */
+
+async function testBackendConnection() {
+
+  try {
+
+    const result =
+      await apiRequest(
+        "/health"
+      );
+
+
+    console.log(
+      "================================"
+    );
+
+
+    console.log(
+      "✅ THE WEB DEVELOPER BACKEND"
+    );
+
+
+    console.log(
+      "Backend Status:",
+      result
+    );
+
+
+    console.log(
+      "================================"
+    );
+
+
+    return true;
+
+  } catch (error) {
+
+    console.error(
+      "❌ Backend connection failed:",
+      error
+    );
+
+
+    return false;
+  }
+}
+
+
+/* =========================================================
+   PAGE START
+========================================================= */
+
+document.addEventListener(
+  "DOMContentLoaded",
+  async function() {
+
+    /*
+      Initial UI update
+    */
+
+    updateStats();
+
+    applyBanner();
+
+
+    /*
+      Backend test
+    */
+
+    await testBackendConnection();
+
+
+    /*
+      Existing login token ho to
+      remote data load karo.
+    */
+
+    if (backendToken) {
+
+      try {
+
+        await loadRemoteData();
+
+      } catch (error) {
+
+        console.error(
+          "Startup remote load error:",
+          error
+        );
+      }
+    }
+
+  }
+);
+
+
+/* =========================================================
+   GLOBAL ERROR HANDLER
+========================================================= */
+
+window.addEventListener(
+  "unhandledrejection",
+  function(event) {
+
+    console.error(
+      "Unhandled Promise Error:",
+      event.reason
+    );
+
+  }
+);
+
+
+/* =========================================================
+   FINAL START
+========================================================= */
 
 updateStats();
 
