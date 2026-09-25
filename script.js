@@ -9,62 +9,39 @@
 const LOGIN_NAME = "DEVENDRA GARG";
 const LOGIN_PASSWORD = "@ND0710";
 
-function login() {
+function login(event) {
+  if (event) event.preventDefault();
 
-  const name = document
-    .getElementById("loginName")
-    .value
-    .trim()
-    .toUpperCase();
-
-  const password = document
-    .getElementById("loginPassword")
-    .value;
-
+  const name = document.getElementById("loginName").value.trim().toUpperCase();
+  const password = document.getElementById("loginPassword").value;
   const error = document.getElementById("loginError");
 
-  if (
-    name === LOGIN_NAME &&
-    password === LOGIN_PASSWORD
-  ) {
+  if (name === LOGIN_NAME && password === LOGIN_PASSWORD) {
+    sessionStorage.setItem("twd_logged_in", "true");
 
-    sessionStorage.setItem(
-      "twd_logged_in",
-      "true"
-    );
-
-    document
-      .getElementById("loginPage")
-      .classList.add("hidden");
-
-    document
-      .getElementById("mainWebsite")
-      .classList.remove("hidden");
+    document.getElementById("loginPage").classList.add("hidden");
+    document.getElementById("mainWebsite").classList.remove("hidden");
 
     updateStats();
-
     return;
   }
 
-  error.textContent =
-    "❌ Name or password is incorrect.";
+  error.textContent = "❌ Name or password is incorrect.";
 }
 
+/* ENTER KEY LOGIN */
+document.addEventListener("keydown", function (event) {
+  if (event.key === "Enter") {
+    const loginPage = document.getElementById("loginPage");
 
-/* Auto Login During Same Browser Session */
-
-if (
-  sessionStorage.getItem("twd_logged_in") === "true"
-) {
-
-  document
-    .getElementById("loginPage")
-    .classList.add("hidden");
-
-  document
-    .getElementById("mainWebsite")
-    .classList.remove("hidden");
-}
+    if (
+      loginPage &&
+      !loginPage.classList.contains("hidden")
+    ) {
+      login(event);
+    }
+  }
+});
 
 
 /* ================= DATA ================= */
