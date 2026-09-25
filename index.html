@@ -9,13 +9,51 @@
 
 <body>
 
-  <div class="bg"></div>
+<!-- ================= LOGIN ================= -->
+<section id="loginPage" class="login-page">
+  <div class="login-box">
+    <div class="login-lock">🔐</div>
+
+    <h1>THE WEB DEVELOPER</h1>
+    <p>Private Workspace</p>
+
+    <input id="loginName" type="text" placeholder="Enter your name">
+
+    <input id="loginPassword" type="password" placeholder="Enter password">
+
+    <button onclick="login()">ENTER WEBSITE</button>
+
+    <div id="loginError"></div>
+  </div>
+</section>
+
+
+<!-- ================= MAIN ================= -->
+<section id="mainWebsite" class="hidden">
+
+  <div id="mainBg" class="bg"></div>
 
   <header>
-    <div class="owner">Owner Name = <span>DEVENDRA GARG</span></div>
+
+    <div class="owner">
+      Owner Name = <span>DEVENDRA GARG</span>
+    </div>
+
     <div class="logo">THE WEB DEVELOPER</div>
+
     <p>Professional Web Development Workspace</p>
+
+    <a
+      class="instagram-link"
+      href="https://www.instagram.com/the_web_developer_07/"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <span>◎</span> @_The_Web_Developer_07
+    </a>
+
   </header>
+
 
   <main>
 
@@ -24,7 +62,10 @@
       <p>Manage your websites, customers, sales and projects in one place.</p>
     </section>
 
+
+    <!-- STATS -->
     <section class="stats">
+
       <div class="stat">
         <b id="websiteCount">0</b>
         <span>Total Websites</span>
@@ -37,48 +78,64 @@
 
       <div class="stat">
         <b id="customerCount">0</b>
-        <span>Customers</span>
+        <span>Total Customers</span>
       </div>
 
       <div class="stat">
         <b id="favoriteCount">0</b>
         <span>Favorites</span>
       </div>
+
     </section>
 
+
+    <!-- DASHBOARD -->
     <section class="dashboard">
 
       <button class="dash-card" onclick="showWebsites()">
         <div>🌐</div>
         <h2>My Total Websites</h2>
-        <p>View and search all websites</p>
+        <p>Demo Websites & Real Websites</p>
       </button>
 
       <button class="dash-card" onclick="showSales()">
         <div>💰</div>
         <h2>Total Sell</h2>
-        <p>View sold websites and buyers</p>
+        <p>Customer, website and selling price</p>
       </button>
 
       <button class="dash-card" onclick="showCustomers()">
         <div>👥</div>
-        <h2>Customers</h2>
-        <p>Search customer information</p>
+        <h2>Total Customer</h2>
+        <p>Customer details & paperwork</p>
       </button>
 
       <button class="dash-card" onclick="showFavorites()">
         <div>⭐</div>
-        <h2>Favorite Projects</h2>
-        <p>View your favorite projects</p>
+        <h2>My Favorite Website</h2>
+        <p>Your favorite projects</p>
       </button>
 
-      <button class="dash-card add-card" onclick="showAddForm()">
+      <button class="dash-card add-card" onclick="showAddWebsite()">
         <div>➕</div>
-        <h2>Add New</h2>
-        <p>Add complete project information</p>
+        <h2>Add New Website</h2>
+        <p>Add Real or Demo Website</p>
+      </button>
+
+      <button class="dash-card" onclick="showEditDelete()">
+        <div>✏️</div>
+        <h2>Edit / Delete</h2>
+        <p>Only place for editing or deleting</p>
+      </button>
+
+      <button class="dash-card" onclick="showBannerEditor()">
+        <div>🖼️</div>
+        <h2>Banner Edit</h2>
+        <p>Change main background from phone</p>
       </button>
 
     </section>
+
 
     <section class="about">
       <h2>ABOUT THE DEVELOPER</h2>
@@ -89,18 +146,84 @@
     </section>
 
   </main>
+</section>
 
-  <!-- MODAL -->
-  <div id="modal" class="modal">
-    <div class="modal-box">
 
-      <button class="close" onclick="closeModal()">×</button>
+<!-- ================= MODAL ================= -->
+<div id="modal" class="modal">
 
-      <div id="modalContent"></div>
+  <div class="modal-box">
 
-    </div>
+    <button class="close" onclick="closeModal()">×</button>
+
+    <div id="modalContent"></div>
+
+  </div>
+</div>
+
+
+<!-- ================= FULL PAGE ================= -->
+<div id="fullPage" class="full-page hidden">
+
+  <div class="full-page-box">
+
+    <button class="close-page" onclick="closeFullPage()">×</button>
+
+    <div id="fullPageContent"></div>
+
   </div>
 
-  <script src="script.js"></script>
+</div>
+
+
+<!-- ================= SIGNATURE ================= -->
+<div id="signaturePage" class="full-page hidden">
+
+  <div class="full-page-box signature-box">
+
+    <h1>Customer Signature</h1>
+
+    <p>Sign inside the box</p>
+
+    <canvas id="signatureCanvas"></canvas>
+
+    <div class="signature-buttons">
+
+      <button onclick="retrySignature()">↻ Retry Signature</button>
+
+      <button onclick="useCamera()">📷 Use Camera</button>
+
+      <button onclick="confirmSignature()">✓ Confirm Signature</button>
+
+    </div>
+
+    <video
+      id="cameraPreview"
+      class="camera-preview hidden"
+      autoplay
+      playsinline
+    ></video>
+
+    <button
+      id="captureBtn"
+      class="action-btn hidden"
+      onclick="capturePhoto()"
+    >
+      📸 Capture Signature Photo
+    </button>
+
+    <canvas id="cameraCanvas" class="hidden"></canvas>
+
+    <button class="back-button" onclick="closeSignature()">
+      ← Back
+    </button>
+
+  </div>
+
+</div>
+
+
+<script src="script.js"></script>
+
 </body>
 </html>
