@@ -2,7 +2,12 @@
    THE WEB DEVELOPER
    COMPLETE FRONTEND MANAGEMENT SYSTEM
 ========================================================= */
+const API_URL = "https://the-web-devloper-backent.onrender.com/api";
 
+fetch(`${API_URL}/health`)
+  .then(res => res.json())
+  .then(data => console.log("Backend Connected:", data))
+  .catch(err => console.error("Backend Error:", err));
 
 /* ================= LOGIN ================= */
 
