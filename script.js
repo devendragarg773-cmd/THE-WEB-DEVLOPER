@@ -4,7 +4,7 @@
 ========================================================= */
 
 const API_URL =
-  "https://the-web-devloper-backent.onrender.com/api";
+  "https://the-web-devloper-backent.onrender.com";
 
 let backendToken =
   sessionStorage.getItem("twd_backend_token") || "";
